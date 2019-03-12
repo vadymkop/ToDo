@@ -33,29 +33,26 @@ function loadTasksListFromServer(){
     getTasksListsFromServer()
         .then(listDataTasks=>{
             listDataTasks.forEach(dataTasks=>{
-                tasksList.push(createTasks(dataTasks.name));
+                tasksList.push(createTasks(dataTasks.name, false, dataTasks.id));
             })
         })
         .then(()=>{
-            tasksList.forEach((tasks, tasksIndex)=>{
-                getTasksFromServer(tasksIndex)
-                .then(itemsData=>{
-                    itemsData.forEach(itemData=>{
-                        tasks.tasks.push(createTask(itemData.text, itemData.isChecked, itemData.parentID));
-                    });
-                    renderPage();
+            getTasksFromServer().then(tasks=>{
+                tasks.forEach(task=>{
+                    tasks.push(createTask(itemData.text, itemData.isChecked, itemData.parentID));
                 });
+                renderPage();
             });
         });
 }
 
 function getTasksListsFromServer() {
-    return fetch(baseUrl + "lists")
+    return fetch(urlLists)
         .then(response => response.json());
 }
 
-function getTasksFromServer(index){
-    return fetch(baseUrl + `tasks/${index}`)
+function getTasksFromServer(){
+    return fetch(urlTasks)
         .then(response => response.json());
 }
 
@@ -66,9 +63,26 @@ function addTasksInServer(tasks){
             'Accept': 'application/json',
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(tasks)
+        body: JSON.stringify({name:tasks.name})
     }
     return fetch(urlLists, options)
+        .then(response => response.json())
+        .then(data=>{
+            console.log(data);
+            tasks = data;
+        });
+}
+
+function deleteTasksInServer(tasks){
+    var options = {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({id: tasks.id})
+    }
+    console.log(tasks);
+    return fetch(urlLists+tasks.id, options)
         .then(response => response.json())
         .then(data=>{tasks = data});
 }
@@ -85,9 +99,6 @@ function saveTasksListToLocalStorage(){
 }
 
 function renderPage(){
-    if (tasksList.length == 0){
-        tasksList.push(createTasks("Tasks"));
-    }
     if (!currentTasks){
         currentTasks = 0;
     }
@@ -154,9 +165,9 @@ function renderTasksList(){
     iTasksList.appendChild(interface);
 }
 
-function renderTasksListElement(element, indexElement){
+function renderTasksListElement(tasks, indexElement){
     var interface = document.createElement('div');
-    interface.innerText = element.name;
+    interface.innerText = tasks.name;
     interface.className = "item-tasks";
     interface.onclick = function () {
         changeTasks(indexElement);
@@ -166,18 +177,18 @@ function renderTasksListElement(element, indexElement){
         var button = document.createElement("button");
         button.textContent = 'Delete';
         button.onclick = function (){
-            deleteTasks(this, indexElement);
+            deleteTasks(this, tasks, indexElement);
         }
         interface.appendChild(button);
     }
     return interface;
 }
 
-function createTasks(name, tasks){
+function createTasks(name, tasks, id){
     if (!tasks){
         tasks = []
     }
-    return {name:name, tasks:tasks}
+    return {name:name, tasks:tasks, id:id}
 }
 
 function createTask(text, isChecked, parentID){
@@ -251,14 +262,18 @@ function editTaskChecked(interface, task){
     saveTasksListToLocalStorage();
 }
 
-function deleteTasks(elem, index){
+function deleteTasks(elem, tasks, index){
     if (tasksList.length == 1){
         tasksList.pop();
     }else{
         tasksList.splice(currentTasks, 1);
     }
-    saveTasksListToLocalStorage();
-    renderPage();
+    if (workWithServer){
+        deleteTasksInServer(tasks).then(renderPage);
+    } else {
+        saveTasksListToLocalStorage();
+        renderPage();
+    }
 }
 
 function changeTasks(index){
