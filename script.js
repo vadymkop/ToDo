@@ -1,4 +1,5 @@
 var baseUrl = "http://localhost:3000/";
+var workWithServer = true;
 var iCurrentTasks = document.querySelector('#current-tasks');
 var iTasksList = document.querySelector('#tasks-list');
 var iTaskText = document.querySelector('#task-text');
@@ -17,7 +18,15 @@ iTasksBth.onclick = function (){
 
 var tasksList = [];
 var currentTasks = 0;
-loadTasksListFromServer();
+main();
+
+function main(){
+    if (workWithServer){
+        loadTasksListFromServer();
+    } else {
+        loadTasksListFromLocalStorage();
+    }
+}
 
 function loadTasksListFromServer(){
     getTasksListsFromServer()
@@ -31,9 +40,7 @@ function loadTasksListFromServer(){
                 getTasksFromServer(tasksIndex)
                 .then(itemsData=>{
                     itemsData.forEach(itemData=>{
-                        if (tasksIndex == itemData.listsId){
-                            tasks.tasks.push(createTask(itemData.name, itemData.done));
-                        }
+                        tasks.tasks.push(createTask(itemData.name, itemData.done, tasksIndex));
                     });
                     renderPage();
                 });
@@ -47,7 +54,7 @@ function getTasksListsFromServer() {
 }
 
 function getTasksFromServer(index){
-    return fetch(baseUrl + `tasks?listId=${index}`)
+    return fetch(baseUrl + `tasks/${index}`)
         .then(response => response.json());
 }
 
@@ -158,10 +165,11 @@ function createTasks(name, tasks){
     return {name:name, tasks:tasks}
 }
 
-function createTask(text, isChecked){
+function createTask(text, isChecked, parentID){
     var task = {}
     task.text = text
     task.isChecked = isChecked;
+    task.parentID = parentID;
     if (!isChecked){
         task.isChecked = false
     }
@@ -171,7 +179,7 @@ function createTask(text, isChecked){
 function createTaskItem(e){
     e.preventDefault();
     if (iTaskText.value.length > 0){
-        var task = createTask(iTaskText.value);
+        var task = createTask(iTaskText.value, false, currentTasks);
         addTaskToTasks(task);
         renderCurrentTasks();
     }
