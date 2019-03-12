@@ -1,4 +1,6 @@
 var baseUrl = "http://localhost:3000/";
+var urlLists = baseUrl + `lists/`;
+var urlTasks = baseUrl + `tasks/`;
 var workWithServer = true;
 var iCurrentTasks = document.querySelector('#current-tasks');
 var iTasksList = document.querySelector('#tasks-list');
@@ -12,7 +14,6 @@ iTasksBth.onclick = function (){
     if (iTasksText.value.length > 0){
         var tasks = createTasks(iTasksText.value);
         addTasksToTaskList(tasks);
-        renderPage();
     }
 }
 
@@ -40,7 +41,7 @@ function loadTasksListFromServer(){
                 getTasksFromServer(tasksIndex)
                 .then(itemsData=>{
                     itemsData.forEach(itemData=>{
-                        tasks.tasks.push(createTask(itemData.name, itemData.done, tasksIndex));
+                        tasks.tasks.push(createTask(itemData.text, itemData.isChecked, itemData.parentID));
                     });
                     renderPage();
                 });
@@ -56,6 +57,20 @@ function getTasksListsFromServer() {
 function getTasksFromServer(index){
     return fetch(baseUrl + `tasks/${index}`)
         .then(response => response.json());
+}
+
+function addTasksInServer(tasks){
+    var options = {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(tasks)
+    }
+    return fetch(urlLists, options)
+        .then(response => response.json())
+        .then(data=>{tasks = data});
 }
 
 function loadTasksListFromLocalStorage(){
@@ -203,7 +218,13 @@ function addTasksToTaskList(tasks){
     currentTasks = tasksList.length;
     tasksList.push(tasks);
     clearInputTasks();
-    saveTasksListToLocalStorage();
+    if (workWithServer){
+        addTasksInServer(tasks).then(renderPage);
+    } else {
+        saveTasksListToLocalStorage();
+        renderPage();
+    }
+    
 }
 
 function editTaskText(interface, task){
@@ -211,7 +232,11 @@ function editTaskText(interface, task){
     if (inputText){
         task.text = inputText;
         interface.lastChild.textContent = task.text;
-        saveTasksListToLocalStorage();
+        if (workWithServer){
+            editTaskTextInServer(task);
+        } else {
+            saveTasksListToLocalStorage();
+        }
     }
 }
 
