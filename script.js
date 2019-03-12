@@ -1,3 +1,4 @@
+var baseUrl = "http://localhost:3000/";
 var iCurrentTasks = document.querySelector('#current-tasks');
 var iTasksList = document.querySelector('#tasks-list');
 var iTaskText = document.querySelector('#task-text');
@@ -6,7 +7,6 @@ var iTasksText = document.querySelector('#tasks-text');
 var iTasksBth = document.querySelector('#bth-tasks');
 iTaskText.onsubmit = createTaskItem;
 iTaskBth.onclick = createTaskItem;
-
 iTasksBth.onclick = function (){
     if (iTasksText.value.length > 0){
         var tasks = createTasks(iTasksText.value);
@@ -16,8 +16,40 @@ iTasksBth.onclick = function (){
 }
 
 var tasksList = [];
-var currentTasks;
-loadTasksListFromLocalStorage();
+var currentTasks = 0;
+loadTasksListFromServer();
+
+function loadTasksListFromServer(){
+    getTasksListsFromServer()
+        .then(listDataTasks=>{
+            listDataTasks.forEach(dataTasks=>{
+                tasksList.push(createTasks(dataTasks.name));
+            })
+        })
+        .then(()=>{
+            tasksList.forEach((tasks, tasksIndex)=>{
+                getTasksFromServer(tasksIndex)
+                .then(itemsData=>{
+                    itemsData.forEach(itemData=>{
+                        if (tasksIndex == itemData.listsId){
+                            tasks.tasks.push(createTask(itemData.name, itemData.done));
+                        }
+                    });
+                    renderPage();
+                });
+            });
+        });
+}
+
+function getTasksListsFromServer() {
+    return fetch(baseUrl + "lists")
+        .then(response => response.json());
+}
+
+function getTasksFromServer(index){
+    return fetch(baseUrl + `tasks?listId=${index}`)
+        .then(response => response.json());
+}
 
 function loadTasksListFromLocalStorage(){
     tasksList = JSON.parse(localStorage.getItem('tasksList')) || [];
@@ -126,18 +158,18 @@ function createTasks(name, tasks){
     return {name:name, tasks:tasks}
 }
 
-function createTask(text, task){
-    if (!task){
-        task = {isChecked:false}
-    }
+function createTask(text, isChecked){
+    var task = {}
     task.text = text
-    if (!task.isChecked){
+    task.isChecked = isChecked;
+    if (!isChecked){
         task.isChecked = false
     }
     return task;
 }
 
-function createTaskItem(){
+function createTaskItem(e){
+    e.preventDefault();
     if (iTaskText.value.length > 0){
         var task = createTask(iTaskText.value);
         addTaskToTasks(task);
