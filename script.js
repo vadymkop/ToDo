@@ -1,7 +1,7 @@
 var baseUrl = "http://localhost:3000/";
 var urlLists = baseUrl + `lists/`;
 var urlTasks = baseUrl + `tasks/`;
-var workWithServer = true;
+var workWithServer = false;
 var iCurrentTasks = document.querySelector('#current-tasks');
 var iTasksList = document.querySelector('#tasks-list');
 var iTaskText = document.querySelector('#task-text');
@@ -29,64 +29,6 @@ function main(){
     }
 }
 
-function loadTasksListFromServer(){
-    getTasksListsFromServer()
-        .then(listDataTasks=>{
-            listDataTasks.forEach(dataTasks=>{
-                tasksList.push(createTasks(dataTasks.name, false, dataTasks.id));
-            })
-        })
-        .then(()=>{
-            getTasksFromServer().then(tasks=>{
-                tasks.forEach(task=>{
-                    tasks.push(createTask(itemData.text, itemData.isChecked, itemData.parentID));
-                });
-                renderPage();
-            });
-        });
-}
-
-function getTasksListsFromServer() {
-    return fetch(urlLists)
-        .then(response => response.json());
-}
-
-function getTasksFromServer(){
-    return fetch(urlTasks)
-        .then(response => response.json());
-}
-
-function addTasksInServer(tasks){
-    var options = {
-        method: 'POST',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({name:tasks.name})
-    }
-    return fetch(urlLists, options)
-        .then(response => response.json())
-        .then(data=>{
-            console.log(data);
-            tasks = data;
-        });
-}
-
-function deleteTasksInServer(tasks){
-    var options = {
-        method: 'DELETE',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({id: tasks.id})
-    }
-    console.log(tasks);
-    return fetch(urlLists+tasks.id, options)
-        .then(response => response.json())
-        .then(data=>{tasks = data});
-}
-
 function loadTasksListFromLocalStorage(){
     tasksList = JSON.parse(localStorage.getItem('tasksList')) || [];
     currentTasks = JSON.parse(localStorage.getItem('currentTasks'));
@@ -98,91 +40,6 @@ function saveTasksListToLocalStorage(){
     localStorage.setItem('currentTasks', JSON.stringify(currentTasks));
 }
 
-function renderPage(){
-    if (!currentTasks){
-        currentTasks = 0;
-    }
-    if (currentTasks >=tasksList.length){
-        changeTasks(tasksList.length-1);
-    }
-    renderCurrentTasks();
-    renderTasksList();
-}
-
-function renderCurrentTasks(){
-    try{
-        iCurrentTasks.removeChild(iCurrentTasks.firstChild);
-    }catch{}
-    iCurrentTasks.appendChild(
-        renderTasks(tasksList[currentTasks])
-    );
-}
-
-function renderTasks(tasks){
-    var interface = document.createElement('div');
-    
-    tasks.tasks.forEach((element, index) => {
-        interface.appendChild(renderTask(element, index));
-    });
-    return interface
-}
-
-function renderTask(task, index){
-    var interface = document.createElement('div');
-    var checker = document.createElement("input");
-    var span = document.createElement("span");
-    var button = document.createElement("button");
-    checker.setAttribute("type", "checkbox");
-    checker.setAttribute("id", "check");
-    checker.checked = task.isChecked;
-    checker.onclick = function (){
-        editTaskChecked(this, task);
-    }
-    span.innerText = task.text;
-    span.ondblclick = function (){
-        editTaskText(this, task);
-    }
-    button.textContent = 'Delete';
-    button.className = 'bth-delete';
-    button.onclick = function (){
-        deleteTask(this, index);
-    }
-    interface.className = "item-task";
-    interface.appendChild(checker);
-    interface.appendChild(span);
-    interface.appendChild(button);
-    return interface
-}
-
-function renderTasksList(){
-    try{
-        iTasksList.removeChild(iTasksList.firstChild);
-    }catch{}
-    var interface = document.createElement('div');
-    tasksList.forEach((element, index) => {
-        interface.appendChild(renderTasksListElement(element, index));
-    });
-    iTasksList.appendChild(interface);
-}
-
-function renderTasksListElement(tasks, indexElement){
-    var interface = document.createElement('div');
-    interface.innerText = tasks.name;
-    interface.className = "item-tasks";
-    interface.onclick = function () {
-        changeTasks(indexElement);
-    }
-    if (indexElement == currentTasks){
-        interface.className = 'selected-tasks';
-        var button = document.createElement("button");
-        button.textContent = 'Delete';
-        button.onclick = function (){
-            deleteTasks(this, tasks, indexElement);
-        }
-        interface.appendChild(button);
-    }
-    return interface;
-}
 
 function createTasks(name, tasks, id){
     if (!tasks){
@@ -204,7 +61,7 @@ function createTask(text, isChecked, parentID){
 
 function createTaskItem(e){
     e.preventDefault();
-    if (iTaskText.value.length > 0){
+    if (iTaskText.value.length > 0 && currentTasks >= 0){
         var task = createTask(iTaskText.value, false, currentTasks);
         addTaskToTasks(task);
         renderCurrentTasks();
@@ -227,11 +84,15 @@ function addTaskToTasks(task){
 
 function addTasksToTaskList(tasks){
     currentTasks = tasksList.length;
-    tasksList.push(tasks);
     clearInputTasks();
     if (workWithServer){
-        addTasksInServer(tasks).then(renderPage);
+        addTasksInServer(tasks).then((taskData)=>{
+            tasks.id = taskData.id;
+            tasksList.push(tasks);
+            renderPage();
+        });
     } else {
+        tasksList.push(tasks);
         saveTasksListToLocalStorage();
         renderPage();
     }
@@ -262,7 +123,8 @@ function editTaskChecked(interface, task){
     saveTasksListToLocalStorage();
 }
 
-function deleteTasks(elem, tasks, index){
+function deleteTasks(event, tasks, index){
+    event.parentNode.remove();
     if (tasksList.length == 1){
         tasksList.pop();
     }else{
