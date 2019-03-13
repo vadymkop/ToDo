@@ -1,7 +1,7 @@
 var baseUrl = "http://localhost:3000/";
 var urlLists = baseUrl + `lists/`;
 var urlTasks = baseUrl + `tasks/`;
-var workWithServer = false;
+var workWithServer = true;
 var iCurrentTasks = document.querySelector('#current-tasks');
 var iTasksList = document.querySelector('#tasks-list');
 var iTaskText = document.querySelector('#task-text');
@@ -18,7 +18,7 @@ iTasksBth.onclick = function (){
 }
 
 var tasksList = [];
-var currentTasks = 0;
+var currentTasks = -1;
 main();
 
 function main(){
@@ -48,11 +48,12 @@ function createTasks(name, tasks, id){
     return {name:name, tasks:tasks, id:id}
 }
 
-function createTask(text, isChecked, parentID){
+function createTask(text, isChecked, parentID, id){
     var task = {}
     task.text = text
     task.isChecked = isChecked;
     task.parentID = parentID;
+    task.id = id;
     if (!isChecked){
         task.isChecked = false
     }
@@ -62,7 +63,7 @@ function createTask(text, isChecked, parentID){
 function createTaskItem(e){
     e.preventDefault();
     if (iTaskText.value.length > 0 && currentTasks >= 0){
-        var task = createTask(iTaskText.value, false, currentTasks);
+        var task = createTask(iTaskText.value, false, tasksList[currentTasks].id);
         addTaskToTasks(task);
         renderCurrentTasks();
     }
@@ -79,7 +80,11 @@ function clearInputTasks(){
 function addTaskToTasks(task){
     tasksList[currentTasks].tasks.push(task);
     clearInputTask();
-    saveTasksListToLocalStorage();
+    if (workWithServer){
+        addTaskInServer(task);
+    } else {
+        saveTasksListToLocalStorage();
+    }
 }
 
 function addTasksToTaskList(tasks){
@@ -113,7 +118,11 @@ function editTaskText(interface, task){
 }
 
 function deleteTask(elem, index){
-    tasksList[currentTasks].tasks.splice(index, 1);
+    var tasks = tasksList[currentTasks].tasks
+    var taskId = tasks[index].id;
+    console.log(taskId);
+    deleteTaskInServer(taskId),
+    tasks.splice(index, 1);
     saveTasksListToLocalStorage();
     renderPage();
 }
@@ -140,6 +149,7 @@ function deleteTasks(event, tasks, index){
 
 function changeTasks(index){
     currentTasks = index;
+    getTasksFromServer(tasksList[currentTasks]).then(renderPage);
     saveTasksListToLocalStorage();
     renderPage();
 }
